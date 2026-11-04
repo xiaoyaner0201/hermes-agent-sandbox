@@ -1,0 +1,33 @@
+# Least-privilege identity for the Hermes host: claim sandboxes and exec into them, nothing else.
+apiVersion: v1
+kind: ServiceAccount
+metadata: {name: hermes-runtime, namespace: sbx}
+automountServiceAccountToken: false
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata: {name: hermes-runtime, namespace: sbx}
+rules:
+- apiGroups: ["extensions.agents.x-k8s.io"]
+  resources: ["sandboxclaims"]
+  verbs: ["get", "list", "watch", "create", "patch", "delete"]
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get"]
+- apiGroups: [""]
+  resources: ["pods/exec"]
+  verbs: ["create", "get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata: {name: hermes-runtime, namespace: sbx}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: hermes-runtime}
+subjects: [{kind: ServiceAccount, name: hermes-runtime, namespace: sbx}]
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: hermes-runtime-token
+  namespace: sbx
+  annotations: {kubernetes.io/service-account.name: hermes-runtime}
+type: kubernetes.io/service-account-token
