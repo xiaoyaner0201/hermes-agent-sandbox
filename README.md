@@ -22,6 +22,9 @@ session ends.
 Built on [k3s](https://k3s.io), [kubernetes-sigs/agent-sandbox](https://github.com/kubernetes-sigs/agent-sandbox)
 and [gVisor](https://gvisor.dev). It needs no KVM, so ordinary cloud VMs work.
 
+> [!NOTE]
+> This repo is the **Hermes adapter**. The sandbox itself (cluster scripts, core library, `sbx` CLI, adapters for other agents) lives in [**self-hosted-agent-sandbox**](https://github.com/xiaoyaner0201/self-hosted-agent-sandbox). The plugin ships a vendored, unmodified copy of its core, so it installs with no dependencies.
+
 ## ✨ Highlights
 
 - **⚡ Fast:** a warm-pool claim takes 0.18 s (median) and the first command finishes at 0.31 s. A cold start takes 0.73 s.
@@ -74,6 +77,8 @@ Three-node lab, 4 GiB pod budget per node, Hermes `main`.
 | Maven rebuild, offline | resolved entirely from the node cache |
 
 ## 🚀 Quick start
+
+Steps 1 and 2 set up the cluster with the scripts from [self-hosted-agent-sandbox](https://github.com/xiaoyaner0201/self-hosted-agent-sandbox) (`git clone` it first); step 3 is the Hermes side.
 
 **1. Nodes** (on every Linux machine; the script fetches the official k3s installer, or uses `$SBX_DL/install-k3s.sh` when air-gapped)
 
@@ -141,7 +146,7 @@ Every option can be set as an env var or under `terminal:` in `config.yaml`.
 
 | Env | Config key | Default | Purpose |
 |---|---|---|---|
-| `AGENT_SANDBOX_POOL` | `agent_sandbox_pool` | `hermes-4g` | warm pool to claim from |
+| `AGENT_SANDBOX_POOL` | `agent_sandbox_pool` | `agent-4g` | warm pool to claim from |
 | `AGENT_SANDBOX_NAMESPACE` | `agent_sandbox_namespace` | `sbx` | namespace of pool and claims |
 | `AGENT_SANDBOX_KUBECONFIG` | `agent_sandbox_kubeconfig` | `~/.kube/agent-sandbox.yaml` | least-privilege kubeconfig |
 | `AGENT_SANDBOX_KUBECTL` | `agent_sandbox_kubectl` | `kubectl` | kubectl binary |
@@ -193,9 +198,7 @@ Go proxy, and container registries for the nodes' image pulls.
 
 ## 🧪 Tests
 
-`tests/route_table.py` (fixed cases) and `tests/route_fuzz.py` (random commands run through real
-bash, asserting nothing is written outside the code dir) check host-command routing offline, with the Python of a Hermes install:
-`HERMES_SRC=~/hermes-agent ~/hermes-agent/.venv/bin/python tests/route_table.py`.
+Host-command routing is tested offline in [self-hosted-agent-sandbox](https://github.com/xiaoyaner0201/self-hosted-agent-sandbox) (`tests/route_table.py`, `tests/route_fuzz.py`). Here, `tests/vendored_core.py` checks the vendored core is the recorded upstream file.
 
 `tests/accept.py` and `tests/task_layout.py` drive a real Hermes against a real cluster; their
 docstrings describe the arguments. They cover:
@@ -210,16 +213,10 @@ docstrings describe the arguments. They cover:
 ## 📁 Layout
 
 ```text
-plugin/agent_sandbox_backend/   Hermes plugin (terminal environment provider)
-cluster/node-install.sh         k3s node with a hard pod memory budget, pod swap off
-cluster/gvisor-node.sh          install runsc and register it with k3s containerd
-cluster/runtimeclass.yaml       RuntimeClass "gvisor"
-cluster/rbac.yaml               least-privilege service account for the Hermes host
-cluster/make-kubeconfig.sh      kubeconfig for that service account
-cluster/render-pool.py          per-tenant SandboxTemplate + SandboxWarmPool
-cluster/example-pool.yaml       minimal generic pool
-cluster/cache-gc*.sh            daily cache prune (age + size cap)
-tests/                          end-to-end acceptance scripts
+plugin/agent_sandbox_backend/   Hermes plugin (terminal environment provider), a thin adapter
+  _vendor/agent_sandbox/        unmodified copy of the self-hosted-agent-sandbox core
+scripts/vendor-core.sh          refresh the vendored core from a tag
+tests/                          Hermes end-to-end acceptance scripts, vendored-core check
 ```
 
 ## 🛣️ Status

@@ -4,6 +4,16 @@ Versions follow the Hermes Agent release each one is tested against: `0.22.7` me
 Hermes v0.22.7. A plugin-only fix on the same Hermes release adds a suffix: `0.22.7-1`, `0.22.7-2`.
 `requires_hermes` in `plugin.yaml` stays the oldest release the plugin is known to work with.
 
+## 0.22.7-2
+
+- The sandbox itself moved to [self-hosted-agent-sandbox](https://github.com/xiaoyaner0201/self-hosted-agent-sandbox):
+  cluster scripts, the core library and the offline routing tests live there now.
+- The plugin is a thin Hermes adapter over a vendored, unmodified copy of that core
+  (`_vendor/agent_sandbox`, checked by `tests/vendored_core.py`); behaviour is unchanged
+  (acceptance suites pass on Hermes 0.21.5 and 0.22.7).
+- Claim labels are now `agent-sandbox/session` and `agent-sandbox/app`; the in-sandbox state dir is
+  `/tmp/.agent-sbx`. Claims made by older versions keep their own TTL and expire on their own.
+
 ## 0.22.7-1
 
 - README: kitchen illustration of the design (English and Chinese). No code change.

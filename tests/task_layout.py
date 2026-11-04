@@ -56,7 +56,7 @@ check("gitfile_redirect_not_pulled_back", os.path.isdir(f"{wd}/t/.git")         
 out = T("cd t/.evil && git push 2>&1; echo rc=$?", workdir=wd)  # bare repo discovered on the host
 check("bare_repo_hook_not_run_on_host", "PWNED" not in out, out)
 from tools.terminal_tool_lifecycle import get_active_env
-env = get_active_env(tid); claim = getattr(env, "_claim", None)
+env = get_active_env(tid); claim = getattr(getattr(env, "sbx", env), "_claim", None)
 kc = [kubectl, "--kubeconfig", kubeconfig, "-n", "sbx"]
 st = subprocess.run(kc + ["get", "sandboxclaim", claim, "-o", "jsonpath={.spec.lifecycle.shutdownTime}"], capture_output=True, text=True).stdout
 check("claim_has_cluster_ttl", st.endswith("Z"), st)

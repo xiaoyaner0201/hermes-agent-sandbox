@@ -18,6 +18,9 @@
 
 底层用的是 [k3s](https://k3s.io)、[kubernetes-sigs/agent-sandbox](https://github.com/kubernetes-sigs/agent-sandbox) 和 [gVisor](https://gvisor.dev)。不需要 KVM，普通云主机就能部署。
 
+> [!NOTE]
+> 这个仓库是 **Hermes 适配插件**。沙箱本身（集群脚本、核心库、`sbx` 命令行、其他 Agent 的适配）在 [**self-hosted-agent-sandbox**](https://github.com/xiaoyaner0201/self-hosted-agent-sandbox)。插件里带了一份原样复制的核心库，安装不需要任何依赖。
+
 ## ✨ 特性
 
 - **⚡ 快**
@@ -81,6 +84,8 @@ flowchart TB
 | Maven 断网重新构建 | 依赖全部从节点缓存取到 |
 
 ## 🚀 快速开始
+
+第 1、2 步用 [self-hosted-agent-sandbox](https://github.com/xiaoyaner0201/self-hosted-agent-sandbox) 里的脚本搭集群（先 `git clone` 它），第 3 步是 Hermes 这边。
 
 **1. 装节点**（每台 Linux 机器执行一次；脚本会下载官方 k3s 安装器，离线环境则使用 `$SBX_DL/install-k3s.sh`）
 
@@ -146,7 +151,7 @@ Hermes 主机的 `PATH` 里要有 `kubectl`，没有的话用 `AGENT_SANDBOX_KUB
 
 | 环境变量 | 配置键 | 默认值 | 用途 |
 |---|---|---|---|
-| `AGENT_SANDBOX_POOL` | `agent_sandbox_pool` | `hermes-4g` | 从哪个预热池领沙箱 |
+| `AGENT_SANDBOX_POOL` | `agent_sandbox_pool` | `agent-4g` | 从哪个预热池领沙箱 |
 | `AGENT_SANDBOX_NAMESPACE` | `agent_sandbox_namespace` | `sbx` | 沙箱所在命名空间 |
 | `AGENT_SANDBOX_KUBECONFIG` | `agent_sandbox_kubeconfig` | `~/.kube/agent-sandbox.yaml` | 最小权限的 kubeconfig |
 | `AGENT_SANDBOX_KUBECTL` | `agent_sandbox_kubectl` | `kubectl` | kubectl 路径 |
@@ -197,7 +202,7 @@ Hermes 主机的 `PATH` 里要有 `kubectl`，没有的话用 `AGENT_SANDBOX_KUB
 
 ## 🧪 测试
 
-`tests/route_table.py`（固定用例）和 `tests/route_fuzz.py`（随机生成命令交给真实 bash 执行，确认不会在代码目录外写文件）离线检查凭据命令的分流，需用已安装 Hermes 的 Python 运行：`HERMES_SRC=~/hermes-agent ~/hermes-agent/.venv/bin/python tests/route_table.py`。
+哪些命令回原机器执行，离线测试在 [self-hosted-agent-sandbox](https://github.com/xiaoyaner0201/self-hosted-agent-sandbox) 里（`tests/route_table.py`、`tests/route_fuzz.py`）。这里的 `tests/vendored_core.py` 检查插件带的核心库与登记的上游文件一致。
 
 `tests/accept.py` 和 `tests/task_layout.py` 用真实的 Hermes 连真实的集群来跑，参数见各自文件开头的说明。覆盖：
 
@@ -211,16 +216,10 @@ Hermes 主机的 `PATH` 里要有 `kubectl`，没有的话用 `AGENT_SANDBOX_KUB
 ## 📁 目录结构
 
 ```text
-plugin/agent_sandbox_backend/   Hermes 插件（终端环境 provider）
-cluster/node-install.sh         安装 k3s 节点：给沙箱硬性内存上限，关闭沙箱 swap
-cluster/gvisor-node.sh          安装 runsc 并注册到 k3s containerd
-cluster/runtimeclass.yaml       RuntimeClass "gvisor"
-cluster/rbac.yaml               给 Hermes 主机用的最小权限服务账号
-cluster/make-kubeconfig.sh      为这个服务账号生成 kubeconfig
-cluster/render-pool.py          按租户生成 SandboxTemplate + SandboxWarmPool
-cluster/example-pool.yaml       最简通用沙箱池
-cluster/cache-gc*.sh            每日缓存清理（按时间和容量上限）
-tests/                          端到端验收脚本
+plugin/agent_sandbox_backend/   Hermes 插件（终端环境 provider），一层薄适配
+  _vendor/agent_sandbox/        原样复制的 self-hosted-agent-sandbox 核心库
+scripts/vendor-core.sh          按 tag 更新这份核心库
+tests/                          Hermes 端到端验收脚本、核心库一致性检查
 ```
 
 ## 🛣️ 状态
