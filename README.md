@@ -1,12 +1,12 @@
 <div align="center">
 
-# 🧊 hermes-agent-sandbox
+# 🧊 hermes-sandbox-cluster
 
-**Run every command your Hermes agent executes inside a disposable gVisor sandbox, on machines you already own.**
+**A self-hosted sandbox cluster for Hermes Agent: every command the agent runs goes into a disposable gVisor sandbox on k3s nodes you own, with a shared warm pool and per-node package caches.**
 
 English · [简体中文](README.zh-CN.md)
 
-![License](https://img.shields.io/badge/license-Apache--2.0-blue) ![Hermes](https://img.shields.io/badge/Hermes-terminal%20backend-8A2BE2) ![k3s](https://img.shields.io/badge/k3s-v1.37-FFC61C) ![gVisor](https://img.shields.io/badge/isolation-gVisor-4285F4) ![agent-sandbox](https://img.shields.io/badge/kubernetes--sigs%2Fagent--sandbox-v1.0.9-326CE5) ![Status](https://img.shields.io/badge/status-early-orange)
+![License](https://img.shields.io/badge/license-Apache--2.0-blue) ![Hermes](https://img.shields.io/badge/Hermes-terminal%20backend-8A2BE2) ![k3s](https://img.shields.io/badge/k3s-v1.37-FFC61C) ![gVisor](https://img.shields.io/badge/isolation-gVisor-4285F4) ![agent-sandbox](https://img.shields.io/badge/kubernetes--sigs%2Fagent--sandbox-v1.0.9-326CE5) ![Self-hosted](https://img.shields.io/badge/self--hosted-multi--node-2E8B57) ![Status](https://img.shields.io/badge/status-early-orange)
 
 </div>
 

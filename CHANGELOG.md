@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Project renamed from `hermes-agent-sandbox` to `hermes-sandbox-cluster` to say what it is: a self-hosted, multi-node sandbox cluster. The plugin name (`agent-sandbox-backend`) and backend name (`agent_sandbox`) are unchanged; old GitHub URLs redirect.
+
 ## 0.2.0 — first public release
 
 - `agent_sandbox` terminal backend: Hermes terminal, file and `execute_code` tools run in gVisor
