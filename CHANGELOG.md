@@ -4,6 +4,10 @@ Versions follow the Hermes Agent release each one is tested against: `0.22.7` me
 Hermes v0.22.7. A plugin-only fix on the same Hermes release adds a suffix: `0.22.7-1`, `0.22.7-2`.
 `requires_hermes` in `plugin.yaml` stays the oldest release the plugin is known to work with.
 
+## 0.22.7-1
+
+- README: kitchen illustration of the design (English and Chinese). No code change.
+
 ## 0.22.7 — first public release
 
 Tested with Hermes v0.22.7 (official `nousresearch/hermes-agent:v0.22.7` image: acceptance

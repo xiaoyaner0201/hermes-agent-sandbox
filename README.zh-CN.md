@@ -10,6 +10,8 @@
 
 </div>
 
+<p align="center"><img src="docs/kitchen-zh.png" width="860" alt="自家的厨房，每单一个新隔间：机器人在封闭的玻璃隔间里干活（沙箱），隔间下面是调料罐（每个节点的依赖缓存），主厨把钥匙挂在门边、亲手把包裹送出门（git push 在原机器执行，凭据不进沙箱）。"></p>
+
 ---
 
 [Hermes Agent](https://github.com/NousResearch/hermes-agent) 原来跑在哪台机器上，接入后还跑在那里。模型调用、聊天、MCP、浏览器和所有凭据都留在原机器上，只有 **Agent 执行的命令** 会进沙箱。每个沙箱约 0.2 秒领到，会话结束就删除。

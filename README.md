@@ -10,6 +10,8 @@ English · [简体中文](README.zh-CN.md)
 
 </div>
 
+<p align="center"><img src="docs/kitchen-en.png" width="860" alt="Your own kitchen: a fresh glass booth for every order. Robot cooks work inside sealed booths (sandboxes), pantry jars under each booth (per-node caches), the head chef keeps the keys by the door and carries parcels out (git push runs on the host, credentials never enter the sandbox)."></p>
+
 ---
 
 [Hermes Agent](https://github.com/NousResearch/hermes-agent) keeps running where it runs today.
