@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.1 — rename
 
 - Project renamed from `hermes-agent-sandbox` to `hermes-sandbox-cluster` to say what it is: a self-hosted, multi-node sandbox cluster. The plugin name (`agent-sandbox-backend`) and backend name (`agent_sandbox`) are unchanged; old GitHub URLs redirect.
 
