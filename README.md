@@ -115,6 +115,9 @@ hermes plugins enable agent-sandbox-backend
 `kubectl` must be on the host's `PATH`, or set `AGENT_SANDBOX_KUBECTL`. Rolling back takes one line:
 `hermes config set terminal.backend local`.
 
+> [!NOTE]
+> The official `nousresearch/hermes-agent` image sets `HERMES_WRITE_SAFE_ROOT=/opt/data`, which makes the file tools refuse writes into your code dirs. Add them, e.g. `HERMES_WRITE_SAFE_ROOT=/opt/data:/workspaces`.
+
 ## 🧭 What runs where
 
 | In the sandbox 🧊 | On the host 🖥️ |

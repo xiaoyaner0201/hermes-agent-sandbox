@@ -121,6 +121,9 @@ hermes plugins enable agent-sandbox-backend
 
 Hermes 主机的 `PATH` 里要有 `kubectl`，没有的话用 `AGENT_SANDBOX_KUBECTL` 指定路径。回滚只需一行：`hermes config set terminal.backend local`。
 
+> [!NOTE]
+> 官方镜像 `nousresearch/hermes-agent` 默认设了 `HERMES_WRITE_SAFE_ROOT=/opt/data`，文件工具会拒绝往代码目录写。把代码目录加进去，例如 `HERMES_WRITE_SAFE_ROOT=/opt/data:/workspaces`。
+
 ## 🧭 哪些在沙箱，哪些在原机器
 
 | 在沙箱里 🧊 | 在原机器上 🖥️ |
