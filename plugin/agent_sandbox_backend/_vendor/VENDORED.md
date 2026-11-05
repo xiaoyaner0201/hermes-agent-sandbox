@@ -6,4 +6,4 @@ dependencies. Refresh it with `scripts/vendor-core.sh <tag>`; `tests/vendored_co
 copy against the recorded blob.
 
 - source tag: v0.2.0
-- git blob sha1: c4c928cdc8edf8e1b28748460e9dccaf60a7ac89
+- git blob sha1: d369aa1859443dbf148855468373b078b3aa7dc9
