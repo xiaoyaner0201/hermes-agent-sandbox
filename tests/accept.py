@@ -13,6 +13,9 @@ os.environ.update({"AGENT_SANDBOX_KUBECTL": kubectl, "AGENT_SANDBOX_KUBECONFIG":
                    "AGENT_SANDBOX_POOL": pool, "TERMINAL_ENV": "agent_sandbox",
                    "AGENT_SANDBOX_CODE_DIRS": code, "AGENT_SANDBOX_SYNC_PATHS": conf,
                    "TERMINAL_CWD": code, "SBX_PROBE_VAR": "v1", "SBX_PROBE_VAR2": "x",
+                   # allowlist: only these reach the sandbox; the fake API key below must not
+                   "AGENT_SANDBOX_FORWARD_ENV": "SBX_PROBE_VAR,SBX_PROBE_VAR2,JAVA_TOOL_OPTIONS",
+                   "SBX_PROBE_API_KEY": "sk-host-only",
                    # a listed host sub-command; "git version" is harmless and present everywhere
                    "AGENT_SANDBOX_HOST_COMMANDS": "git push,git fetch,git clone,git ls-remote,git version,uname -n"})
 import logging
@@ -37,16 +40,24 @@ def check(name, ok, detail=""):
 out, rc, s = T("cat /proc/version; hostname; id -un; pwd")
 check("runs_in_gvisor_sandbox", "gvisor" in out.lower() and os.uname().nodename not in out, f"{s}s {out!r}")
 
-# 1. env wholesale + change visible next command
-out, *_ = T("echo $SBX_PROBE_VAR; echo ${SBX_PROBE_VAR2:+has_probe2}; echo HOME=$HOME; echo JTO=$JAVA_TOOL_OPTIONS")
+# 0. dangerous-command approval is not skipped for this backend (results reach the host)
+try:
+    from tools.approval import _should_skip_container_guards
+    check("approval_guards_on", _should_skip_container_guards("agent_sandbox") is False, "")
+except ImportError:
+    from agent.terminal_env_registry import provider_flag
+    check("approval_guards_on", provider_flag("agent_sandbox", "skip_container_guards", True) is False, "")
+
+# 1. env allowlist + change visible next command
+out, *_ = T("echo $SBX_PROBE_VAR; echo ${SBX_PROBE_VAR2:+has_probe2}; echo HOME=$HOME; echo JTO=$JAVA_TOOL_OPTIONS; echo key=${SBX_PROBE_API_KEY:-none}")
 check("env_forwarded", "v1" in out and "has_probe2" in out, out)
+check("env_unlisted_api_key_stays_on_host", "key=none" in out and "sk-host-only" not in out, out)
 check("env_skip_home_and_java", "HOME=/home/agent" in out and "MaxRAMPercentage=50.0" in out, out)
 os.environ["SBX_PROBE_VAR"] = "v2"
 out, *_ = T("echo $SBX_PROBE_VAR")
 check("env_change_next_command", out.strip().endswith("v2"), out)
-_o = T("env | wc -l")[0].strip().splitlines()
-n_env = int(_o[-1]) if _o and _o[-1].isdigit() else -1
-check("env_count_close_to_runtime", n_env >= len(os.environ) - 25, f"sandbox={n_env} runtime={len(os.environ)}")
+_names = set(T("compgen -e | grep '^SBX_' | sort")[0].split())
+check("env_only_allowlisted_probes", _names == {"SBX_PROBE_VAR", "SBX_PROBE_VAR2"}, sorted(_names))
 
 # 2. declared config file: hot change visible next command, never copied back
 open(conf, "w").write("value=one\n")

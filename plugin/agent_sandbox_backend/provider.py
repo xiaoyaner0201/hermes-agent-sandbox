@@ -21,6 +21,14 @@ class AgentSandboxProvider(TerminalEnvironmentProvider):
     session_isolated_when_nonpersistent = True
 
     @property
+    def skip_container_guards(self) -> bool:
+        # Not a sealed container: code dirs are mirrored back to the host and git network
+        # commands run on the host, so dangerous-command approval must stay on (as for Docker
+        # with bind mounts). Code dirs default to the task dir and host commands are on by
+        # default, so this holds for every session rather than per configuration.
+        return False
+
+    @property
     def cache_path_base(self) -> Optional[str]:
         return None  # cache files are NOT synced into the sandbox
 

@@ -1,8 +1,25 @@
 # Changelog
 
-Versions follow the Hermes Agent release each one is tested against: `0.22.7` means tested with
-Hermes v0.22.7. A plugin-only fix on the same Hermes release adds a suffix: `0.22.7-1`, `0.22.7-2`.
+Versions have four parts: the first three are the Hermes release the plugin was tested with, the
+fourth is the plugin's own revision on that release (`0.22.7.3` = third plugin revision tested with
+Hermes v0.22.7). This replaces the earlier `-N` suffix (`0.22.7-2`), which reads as a pre-release
+under SemVer; four-part versions sort as expected (`0.22.7.3` > `0.22.7-2` > `0.22.7`).
 `requires_hermes` in `plugin.yaml` stays the oldest release the plugin is known to work with.
+
+## 0.22.7.3
+
+Tested with Hermes v0.22.7 and 0.21.5. Vendors self-hosted-agent-sandbox v0.2.0.
+
+- **Dangerous-command approval stays on.** The provider sets `skip_container_guards = False`:
+  results are mirrored to the host and git network commands run there, so Hermes no longer treats
+  this backend as a sealed container.
+- **Environment variables are an allowlist.** Only names listed in `agent_sandbox_forward_env`
+  (`AGENT_SANDBOX_FORWARD_ENV`), by name or glob, reach the sandbox; the default is empty.
+  `agent_sandbox_env_skip` still withholds names the allowlist matches.
+  Upgrading: list what your builds need, e.g. `MY_BUILD_FLAG,NPM_CONFIG_REGISTRY`. Never list tokens or keys.
+- **Git config is an allowlist:** `user`, `core`, `init`, `pull`, `push`, `alias`, minus keys that
+  name a token, password, secret, credential, key or proxy, and values with `user:pass@`.
+- Version scheme: four parts instead of the `-N` suffix (see the top of this file).
 
 ## 0.22.7-2
 

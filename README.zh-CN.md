@@ -31,12 +31,12 @@
   - 每台机器给沙箱划出一块固定内存（比如 4G），机器上原有的服务照常使用剩余内存
   - 单个沙箱超出自己的限额，几秒内就会被系统杀掉，同一台机器上的其他沙箱不受影响
 - **🔁 同步无感**
-  - 环境变量全部带进沙箱
+  - 你在 `agent_sandbox_forward_env` 里列出的主机环境变量会带进沙箱（默认一个都不带）
   - 声明过的配置文件，每条命令执行前都会检查一次，有改动就重新推送
   - 任务的代码（含 `.git`）双向同步，原机器上的目录始终是正本
 - **🔐 带凭据的命令回原机器跑**
   - `git push/pull/fetch/clone/ls-remote` 和你登记过的具体子命令（比如 `gh pr create`），单独执行时在原机器上跑，它们用的 token 和 credential helper 留在原机器
-  - 标记为敏感的环境变量（如 `agent_sandbox_env_skip: "*_TOKEN,*_SECRET"`）也不进沙箱
+  - 沙箱只负责执行和构建：没列出的主机变量都不进沙箱
 - **📦 依赖缓存常驻**
   - 每台机器为每个租户（团队或组）单独保留一份包缓存，覆盖 Maven、npm、pnpm、pip、uv、Go、Gradle
   - 每天自动清理旧缓存
@@ -158,7 +158,8 @@ Hermes 主机的 `PATH` 里要有 `kubectl`，没有的话用 `AGENT_SANDBOX_KUB
 | `AGENT_SANDBOX_SYNC_PATHS` | `agent_sandbox_sync_paths` | – | 按原路径推进沙箱的配置文件或目录 |
 | `AGENT_SANDBOX_CODE_DIRS` | `agent_sandbox_code_dirs` | 任务目录 | 双向同步的代码目录 |
 | `AGENT_SANDBOX_HOST_COMMANDS` | `agent_sandbox_host_commands` | git 网络操作、`git remote add/set-url` | 回原机器执行的命令前缀，按词匹配（设置后替换默认列表） |
-| `AGENT_SANDBOX_ENV_SKIP` | `agent_sandbox_env_skip` | – | 额外不带进沙箱的环境变量，支持 `*_TOKEN` 这类通配 |
+| `AGENT_SANDBOX_FORWARD_ENV` | `agent_sandbox_forward_env` | –（不转任何变量） | 要带进沙箱的主机环境变量，写变量名或通配，例如 `MY_BUILD_FLAG,NPM_CONFIG_REGISTRY`。不要把 token、key 写进来 |
+| `AGENT_SANDBOX_ENV_SKIP` | `agent_sandbox_env_skip` | – | 即使白名单匹配也不带进沙箱的变量名，支持 `*_TOKEN` 这类通配 |
 | `AGENT_SANDBOX_TASK_FILES` | `agent_sandbox_task_files` | – | 任务根目录（`/workspaces/<ws>/<task>/`）里随工作目录推进沙箱的文件，不回传 |
 | `AGENT_SANDBOX_IDLE_TTL` | `agent_sandbox_idle_ttl` | `1800` | 集群侧到期时间（秒），有命令执行时自动续期 |
 | `AGENT_SANDBOX_PERSISTENT` | `agent_sandbox_persistent` | `false` | 同一任务跨会话复用同一个沙箱 |
@@ -191,14 +192,16 @@ Hermes 主机的 `PATH` 里要有 `kubectl`，没有的话用 `AGENT_SANDBOX_KUB
 ## 🔒 安全
 
 - 沙箱运行在 **gVisor** 里，用非 root 用户，不挂载服务账号 token，也不注入服务发现变量。
-- 推进沙箱的 git 配置去掉了 credential helper（读取凭据的那部分）、include、`extraheader`/cookie/SSL 私钥设置，以及带 `用户名:密码@` 的地址。
+- **凭据留在原机器上。** 沙箱只负责执行和构建；没写进 `agent_sandbox_forward_env` 的主机环境变量一个都不进沙箱（默认为空），需要凭据的 git 联网命令回原机器执行。
+- 推进沙箱的 git 配置按白名单放行：只有 `user`、`core`、`init`、`pull`、`push`、`alias` 这几段，其中键名带 token、pass、secret、cred、key、proxy 的去掉，带 `用户名:密码@` 的值也去掉。credential helper、include、`http.*`、`url.*` 一律不进。
+- 这个后端保持 Hermes 的危险命令确认（`skip_container_guards` 为 `False`）：结果会同步回原机器，git 联网命令也在原机器上跑，所以不按封闭容器处理。
 - 回传到 `.git` 里的内容按白名单放行，只有对象、引用、日志、`HEAD`、`index`、`packed-refs` 这类；配置、钩子、gitfile 等一律保持原机器上的样子。原机器上的 git 以 `safe.bareRepository=explicit` 运行，也拒绝经由指向代码目录之外的符号链接写入。这样沙箱里做的任何事，都没法埋一个钩子让之后在原机器上执行的 `git push` 去跑。
 - 依赖缓存按租户隔离，一个租户装了有问题的包，不会污染别的租户。
 - Hermes 主机用的服务账号权限最小：只能在一个命名空间里管理 `sandboxclaims`，并进入 Pod 执行命令。
 - 回原机器执行的命令沿用 Hermes 进程自己的 `PATH`。插件检查的是命令文本，不检查 `PATH` 解析到哪个 `git`，所以主机 `PATH` 里不要放 Agent 能写入的目录。
 
 > [!WARNING]
-> 环境变量默认全部同步，主机环境里的密钥也会进沙箱，除非你把它们排除掉，例如 `agent_sandbox_env_skip: "*_TOKEN,*_SECRET,*_PASSWORD,*_API_KEY"`。
+> 默认不带任何主机环境变量进沙箱。只写构建需要的，例如 `agent_sandbox_forward_env: "MY_BUILD_FLAG,NPM_CONFIG_REGISTRY"`；不要把 token、API key 写进白名单，带进去的变量沙箱里每条命令都能读到。
 
 ## 🧪 测试
 
@@ -206,7 +209,8 @@ Hermes 主机的 `PATH` 里要有 `kubectl`，没有的话用 `AGENT_SANDBOX_KUB
 
 `tests/accept.py` 和 `tests/task_layout.py` 用真实的 Hermes 连真实的集群来跑，参数见各自文件开头的说明。覆盖：
 
-- 环境变量同步，以及改动在下一条命令生效
+- 环境变量白名单（没列出的主机变量留在原机器），以及改动在下一条命令生效
+- 这个后端的危险命令确认保持开启
 - 配置文件热同步，代码双向同步（含删除；沙箱里新建的空目录也会同步回原机器）
 - 沙箱里的 git 提交在原机器可见
 - 凭据命令的分流，以及密钥不进沙箱
@@ -229,9 +233,10 @@ tests/                          Hermes 端到端验收脚本、核心库一致�
 ## 🔍 插件会接触什么
 
 - **调用** 你指定的 `kubectl`，只用你给的 kubeconfig，只连这个 kubeconfig 里的 API Server。
-- **送进沙箱的：** 主机进程的环境变量（排除名单除外）、`agent_sandbox_sync_paths` 和 `agent_sandbox_task_files` 声明的文件、任务代码目录、Hermes skills 目录（只读副本），以及去掉凭据相关设置后的 git 配置。
+- **送进沙箱的：** `agent_sandbox_forward_env` 里列出的主机环境变量（默认没有）、`agent_sandbox_sync_paths` 和 `agent_sandbox_task_files` 声明的文件、任务代码目录、Hermes skills 目录（只读副本），以及 git 配置里白名单内的部分。
 - **在主机上写的：** 只在代码目录内，同步回沙箱里新增、修改或删除的文件（`.git` 里只写历史和索引，不经由通向目录外的符号链接写入）。
-- **没有其他网络请求**，不上报数据，不保存凭据，不起自己的后台进程。危险命令确认保持开启。
+- **没有其他网络请求**，不上报数据，不保存凭据，不起自己的后台进程。
+- **危险命令确认：** 这个后端保持开启（`skip_container_guards = False`）。
 
 ## 📄 许可证
 

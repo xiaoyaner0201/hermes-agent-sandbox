@@ -30,10 +30,10 @@ and [gVisor](https://gvisor.dev). It needs no KVM, so ordinary cloud VMs work.
 - **⚡ Fast:** a warm-pool claim takes 0.18 s (median) and the first command finishes at 0.31 s. A cold start takes 0.73 s.
 - **🧱 Hard limits:** each node gets a memory budget for all of its sandboxes (for example 4 GiB), and existing services keep the rest of the machine. A sandbox that exceeds its own limit is killed within seconds, and the other sandboxes keep running.
 - **🔁 Transparent sync:**
-  - The host's environment variables are forwarded wholesale.
+  - Host environment variables you list in `agent_sandbox_forward_env` are forwarded (none by default).
   - Declared config files are re-checked before every command.
   - The task's code, including `.git`, is synced both ways, so the host tree stays the source of truth.
-- **🔐 Credentialed commands run on the host:** `git push/pull/fetch/clone/ls-remote` and any exact sub-commands you list (for example `gh pr create`) run on the host when issued as their own command, so their tokens and credential helpers stay there. Env vars you mark as secret (`agent_sandbox_env_skip: "*_TOKEN,*_SECRET"`) stay there too.
+- **🔐 Credentialed commands run on the host:** `git push/pull/fetch/clone/ls-remote` and any exact sub-commands you list (for example `gh pr create`) run on the host when issued as their own command, so their tokens and credential helpers stay there. The sandbox only runs and builds code: no host variable reaches it unless you name it.
 - **📦 Warm caches:** every node keeps a separate package cache per tenant (Maven, npm, pnpm, pip, uv, Go, Gradle), and a daily job prunes old entries.
 - **♻️ Nothing leaks:** a sandbox is deleted at session close or after 5 idle minutes. Every claim also carries a cluster-side expiry, so the cluster reclaims it even if Hermes crashes.
 
@@ -153,7 +153,8 @@ Every option can be set as an env var or under `terminal:` in `config.yaml`.
 | `AGENT_SANDBOX_SYNC_PATHS` | `agent_sandbox_sync_paths` | – | config files/dirs pushed at the same path |
 | `AGENT_SANDBOX_CODE_DIRS` | `agent_sandbox_code_dirs` | task dir | two-way synced code dirs |
 | `AGENT_SANDBOX_HOST_COMMANDS` | `agent_sandbox_host_commands` | git network ops, `git remote add/set-url` | command prefixes that run on the host, matched word by word (replaces the default list) |
-| `AGENT_SANDBOX_ENV_SKIP` | `agent_sandbox_env_skip` | – | extra env names not to forward; globs like `*_TOKEN` work |
+| `AGENT_SANDBOX_FORWARD_ENV` | `agent_sandbox_forward_env` | – (nothing) | host env vars to forward, by name or glob, e.g. `MY_BUILD_FLAG,NPM_CONFIG_REGISTRY`. Never list tokens or keys |
+| `AGENT_SANDBOX_ENV_SKIP` | `agent_sandbox_env_skip` | – | names to withhold even when the allowlist matches them (globs like `*_TOKEN` work) |
 | `AGENT_SANDBOX_TASK_FILES` | `agent_sandbox_task_files` | – | files in a task root (`/workspaces/<ws>/<task>/`) pushed with the workdir, never pulled back |
 | `AGENT_SANDBOX_IDLE_TTL` | `agent_sandbox_idle_ttl` | `1800` | cluster-side expiry in seconds, renewed while active |
 | `AGENT_SANDBOX_PERSISTENT` | `agent_sandbox_persistent` | `false` | reuse one claim per task across sessions |
@@ -187,14 +188,16 @@ Go proxy, and container registries for the nodes' image pulls.
 ## 🔒 Security
 
 - Sandboxes run under **gVisor**, as a non-root uid, with no service-account token and no service links.
-- The git config copied into the sandbox drops credential helpers, includes, `extraheader`/cookie/SSL-key settings and any URL with `user:pass@`.
+- **Credentials stay on the host.** The sandbox runs and builds code. It gets no host environment variable you have not named in `agent_sandbox_forward_env` (empty by default), and git network commands, which need credentials, run on the host.
+- The git config copied into the sandbox is an allowlist: the `user`, `core`, `init`, `pull`, `push` and `alias` sections, minus any key whose name mentions a token, password, secret, credential, key or proxy and any value with `user:pass@`. Credential helpers, includes, `http.*` and `url.*` never go in.
+- Hermes's dangerous-command approval stays on for this backend (`skip_container_guards` is `False`): results are mirrored to the host and git network commands run there, so it is not treated as a sealed container.
 - Pull-back into `.git` is an allowlist (objects, refs, logs, `HEAD`, `index`, `packed-refs`, …). Config, hooks, gitfiles and everything else stay as the host has them, host-side git runs with `safe.bareRepository=explicit`, and writes through host symlinks that lead out of the code dirs are refused, so nothing built in the sandbox can plant a hook that a later host-side `git push` runs.
 - Package caches are per tenant, so one tenant cannot poison another tenant's cache.
 - The Hermes host's service account may only manage `sandboxclaims` and exec into pods in one namespace.
 - Host commands run with the Hermes process's own `PATH`; the plugin checks the command text, not which `git` binary that `PATH` resolves to, so keep the host `PATH` free of directories the agent can write.
 
 > [!WARNING]
-> Environment forwarding is wholesale by default, so secrets in the host environment reach the sandbox unless you withhold them, e.g. `agent_sandbox_env_skip: "*_TOKEN,*_SECRET,*_PASSWORD,*_API_KEY"`.
+> No host environment variable is forwarded by default. Name only what builds need, e.g. `agent_sandbox_forward_env: "MY_BUILD_FLAG,NPM_CONFIG_REGISTRY"`, and never put tokens or API keys in the list: anything forwarded is readable by every command in the sandbox.
 
 ## 🧪 Tests
 
@@ -203,7 +206,8 @@ Host-command routing is tested offline in [self-hosted-agent-sandbox](https://gi
 `tests/accept.py` and `tests/task_layout.py` drive a real Hermes against a real cluster; their
 docstrings describe the arguments. They cover:
 
-- environment forwarding, and changes seen by the next command;
+- environment allowlist (an unlisted host variable stays on the host), and changes seen by the next command;
+- dangerous-command approval stays on for this backend;
 - config-file hot sync, and two-way code sync including deletes (empty directories created in the sandbox come back to the host);
 - git commits made in the sandbox showing up on the host;
 - host-command routing, and keeping secrets out of the sandbox;
@@ -226,9 +230,10 @@ Early. Tested with Hermes `main` (terminal environment provider API) on Linux x8
 ## 🔍 What the plugin touches
 
 - **Runs** `kubectl` (the binary you point it at) as a subprocess, with the kubeconfig you name, against that kubeconfig's API server only.
-- **Sends into the sandbox:** the host process environment (minus the skip list), the files in `agent_sandbox_sync_paths` and `agent_sandbox_task_files`, the task's code directories, the Hermes skills directory (read-only copy) and the host git config without credential-bearing settings.
+- **Sends into the sandbox:** the host environment variables named in `agent_sandbox_forward_env` (none by default), the files in `agent_sandbox_sync_paths` and `agent_sandbox_task_files`, the task's code directories, the Hermes skills directory (read-only copy) and the allowlisted part of the host git config.
 - **Writes on the host:** only inside the code directories, with files the sandbox created, changed or deleted there (in `.git` only history and index; never through symlinks that leave the code dirs).
-- **No other network calls,** no telemetry, no stored credentials, no background process of its own. Dangerous-command approval stays on.
+- **No other network calls,** no telemetry, no stored credentials, no background process of its own.
+- **Approval:** Hermes's dangerous-command approval stays on for this backend (`skip_container_guards = False`).
 
 ## 📄 License
 

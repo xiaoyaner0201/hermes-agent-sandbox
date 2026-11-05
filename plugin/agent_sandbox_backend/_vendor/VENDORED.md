@@ -5,5 +5,5 @@ https://github.com/xiaoyaner0201/self-hosted-agent-sandbox, so the plugin instal
 dependencies. Refresh it with `scripts/vendor-core.sh <tag>`; `tests/vendored_core.py` checks the
 copy against the recorded blob.
 
-- source tag: v0.1.0
-- git blob sha1: 476be959768128e0bb130e7806bc188e0505f392
+- source tag: v0.2.0
+- git blob sha1: c4c928cdc8edf8e1b28748460e9dccaf60a7ac89
