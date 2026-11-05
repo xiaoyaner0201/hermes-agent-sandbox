@@ -20,7 +20,7 @@ Tested with Hermes v0.22.7 and 0.21.5. Vendors self-hosted-agent-sandbox v0.2.0.
   Upgrading: list what your builds need, e.g. `MY_BUILD_FLAG,NPM_CONFIG_REGISTRY`. Never list tokens or keys.
 - A variable forwarded earlier in the session and then dropped is unset in the sandbox.
 - **Git config is an exact key allowlist,** for `~/.gitconfig` and for each repository's
-  `.git/config` in the code dirs: no aliases, `core.sshCommand`, `core.askpass`, helpers,
+  `.git/config` and `config.worktree` in the code dirs: no aliases, `core.sshCommand`, `core.askpass`, helpers,
   includes, `http.*`, `url.*`, nor values with `user:pass@`.
 - Version scheme: four parts instead of the `-N` suffix (see the top of this file).
 
